@@ -1,1 +1,74 @@
-#
+# Make a folder for analysis 
+
+mkdir motif 
+
+
+# Write a perl script using any text editor and save it as extractRegions.pl
+# I used a text editor in my local computer and copied & pasted it to Thinlinc 
+
+use FileHandle;
+ 
+my $fasta = shift;
+my $coords = shift;
+my $border = shift;
+ 
+my $ffh = new FileHandle($fasta);
+while (<$ffh>) {
+  if (/^>(\S+)/) {
+    $id = $1;
+  } else {
+    chomp;
+    push @{$seq{$id}},$_;
+  }
+}
+$ffh->close();
+ 
+my %seqs;
+foreach my $i (keys %seq) {
+  $seqs{$i} = join "",@{$seq{$i}};
+}
+ 
+my $cfh = new FileHandle($coords);
+while (<$cfh>) {
+  chomp;
+  my $c = $_;
+  my @d = split /:|-/,$_;
+  my $len = $d[2]-$d[1]+2*$border;
+  my $b = $d[1] - $border;
+  $b = 0 if $b < 0;
+  if (exists($seqs{$d[0]})) {
+    my $sub = substr($seqs{$d[0]},$b,$len);
+    my $l = length($sub);
+    my $e = $b + $l;
+    print ">$d[0].$b.$l $c\n";
+    print $sub,"\n";
+  }
+}
+$ffh->close();
+
+
+# Generate a genome fasta file (assign variables then download and unpack the genome assembly) 
+
+ASSEMBLY='ftp://ftp.wormbase.org/pub/wormbase/releases/WS275/species/c_elegans/PRJNA13758/c_elegans.PRJNA13758.WS275.genomic.fa.gz'
+
+curl $ASSEMBLY | gunzip > assembly.fasta
+
+
+# Generate a file of coordinates 
+# In your local computer, in the CLIP peak data excel file, copy and paste column D which looks like this: I:2082664-2082816:+:. into a new excel file
+# Save a new file as a text file named coords
+
+
+# Run the perl script 
+# You can set up a border sequence. For example, the code below will extract the coordinates from the file coords, with 10 bps of additional sequence to either side of the region. 
+
+module load perl 
+
+perl extractRegions.pl /N/slate/by6/motif/assembly.fasta coords.txt 10
+
+
+# Copy the resulting sequences and paste them to a new excel file in your local computer 
+# Save the new file as a text file and upload it onto the MEME package: https://meme-suite.org/meme/
+
+
+
