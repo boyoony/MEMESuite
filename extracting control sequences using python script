@@ -1,1 +1,37 @@
+# Download and unpack genome fasta file 
+
+wget https://ftp.ensembl.org/pub/release-111/fasta/caenorhabditis_elegans/dna/Caenorhabditis_elegans.WBcel235.dna_sm.toplevel.fa.gz
+
+gunzip Caenorhabditis_elegans.WBcel235.dna_sm.toplevel.fa.gz
+
+
+# Download and unpack gff3 file 
+
+wget https://ftp.ensembl.org/pub/release-111/gff3/caenorhabditis_elegans/Caenorhabditis_elegans.WBcel235.111.gff3.gz
+
+gunzip Caenorhabditis_elegans.WBcel235.111.gff3.gz
+
+
+# Download and unpack annotation gtf file 
+
+wget https://ftp.ensembl.org/pub/release-111/gtf/caenorhabditis_elegans/Caenorhabditis_elegans.WBcel235.111.gtf.gz
+
+gunzip Caenorhabditis_elegans.WBcel235.111.gtf.gz
+
+
+# Copy and paste other files from Onedrive (Boyoon Yang > Bioinformatics > MEMESuite folder) to working folder 
+
+scp /Users/yang/Desktop/boyoon_extract_random_sequence_new.py by6@quartz.uits.iu.edu:/N/slate/by6/motif
+
+scp /Users/yang/Desktop/BY_adr-1_adr-2_CLIP.bed by6@quartz.uits.iu.edu:/N/slate/by6/motif
+
+# Before proceeding, make sure to change file paths in the .py file
+
+
+# Run the script 
+
+module load python
+module load pybedtools 
+
+python boyoon_extract_random_sequence_new.py
 
