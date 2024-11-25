@@ -20,9 +20,9 @@ wget https://ftp.ensembl.org/pub/release-111/gtf/caenorhabditis_elegans/Caenorha
 gunzip Caenorhabditis_elegans.WBcel235.111.gtf.gz
 
 
-# Write an excel file consisting of chromosome number in the 1st column and coordinate in the 2nd column. Save as FIMOoutput.csv file (having more than 10000 rows ran out of memory. I did it with 5000 rows per file) 
-I  1011250 
-I  2348129
+# Write an excel file consisting of chromosome number in the 1st column, start coordinate in the 2nd column, and end coordinate in the 3rd column (no header). Save as FIMOoutput.csv file (having more than 10000 rows ran out of memory. I did it with 5000 rows per file) 
+I  1011250  1011278
+I  2348129  2348233
 
 
 # On Mac terminal, copy and paste files you need from your laptop to Thinlinc 
