@@ -1,50 +1,107 @@
+# This code uses an updated perl script to extract forward and reverse strand sequences based on the strand information provided (updated in Jan 2025)
+
 # Make a folder for analysis 
 
-mkdir motif 
+mkdir motif2025
 
 
-# Write a perl script using any text editor and save it as extractRegions.pl
+# Write a perl script using any text editor and save it as extractRegions2025_RC.pl
 # I used a text editor in my local computer and copied & pasted it to Thinlinc 
 
+scp /Users/yang/Desktop/extractRegions2025_RC.pl by6@quartz.uits.iu.edu:/N/slate/by6/motif2025
+
+
+use strict;
+use warnings;
 use FileHandle;
- 
+
+# Function to reverse complement a DNA sequence
+sub reverse_complement {
+    my $seq = shift;
+    $seq = reverse $seq;              # Reverse the sequence
+    $seq =~ tr/acgtACGT/tgcaTGCA/;    # Complement the bases (handles both uppercase and lowercase)
+    return $seq;
+}
+
+# Function to get reverse complement (as shown in the image)
+sub get_reverse_complement {
+    my $seq = shift;
+    $seq = reverse($seq);              # Reverse the sequence
+    $seq =~ tr/ACGTacgt/TGCAtgca/;    # Complement the bases (handles both uppercase and lowercase)
+    return $seq;
+}
+
 my $fasta = shift;
 my $coords = shift;
 my $border = shift;
- 
-my $ffh = new FileHandle($fasta);
+
+# Read the FASTA file
+my %seq;
+my $ffh = FileHandle->new($fasta);
+my $id;
+
 while (<$ffh>) {
-  if (/^>(\S+)/) {
-    $id = $1;
-  } else {
-    chomp;
-    push @{$seq{$id}},$_;
-  }
+    if (/^>(\S+)/) {
+        $id = $1;
+    } else {
+        chomp;
+        push @{$seq{$id}}, $_;
+    }
 }
 $ffh->close();
- 
+
+# Combine sequence lines into a single string for each ID
 my %seqs;
-foreach my $i (keys %seq) {
-  $seqs{$i} = join "",@{$seq{$i}};
+foreach my $key (keys %seq) {
+    $seqs{$key} = join("", @{$seq{$key}});
 }
- 
-my $cfh = new FileHandle($coords);
+
+# Read the coordinates file
+my $cfh = FileHandle->new($coords);
 while (<$cfh>) {
-  chomp;
-  my $c = $_;
-  my @d = split /:|-/,$_;
-  my $len = $d[2]-$d[1]+2*$border;
-  my $b = $d[1] - $border;
-  $b = 0 if $b < 0;
-  if (exists($seqs{$d[0]})) {
-    my $sub = substr($seqs{$d[0]},$b,$len);
-    my $l = length($sub);
-    my $e = $b + $l;
-    print ">$d[0].$b.$l $c\n";
-    print $sub,"\n";
-  }
+    chomp;
+    my $line = $_;
+    
+    # Split the line into coordinates and strand information
+    my ($coords, $strand) = split /\t/, $line;
+    
+    # Clean the strand value to remove any extra spaces or newline characters
+    $strand =~ s/\s+//g;  # This ensures there are no hidden whitespace characters
+
+    # Split coordinates to extract the range information
+    my @d = split /:/, $coords;
+    my @range = split /-/, $d[1];  # The range is in the second part after the first ":"
+    
+    # Adjust for border extension and 1-based to 0-based indexing
+    my $length = $range[1] - $range[0] + 1 + 2 * $border;  # Add border length
+    my $adjusted_start = $range[0] - 1 - $border;           # Convert to 0-based index (adjusted for border)
+    $adjusted_start = 0 if $adjusted_start < 0;              # Ensure it doesn't go negative
+
+    # Check if the sequence exists in the given genome
+    if (exists($seqs{$d[0]})) {
+        my $subseq = substr($seqs{$d[0]}, $adjusted_start, $length);
+
+        # Process based on strand
+        if ($strand eq "-") {
+            # If strand is negative, reverse complement
+            $subseq = get_reverse_complement($subseq);
+        }
+
+        # Output only the sequence in the final format, without any extra details
+        print ">$coords\n";  # Print the coordinates before the sequence
+        print "$subseq\n";   # Print the final sequence (forward or reverse complement)
+    }
 }
-$ffh->close();
+$cfh->close();
+
+
+# Write an input text file with the first column being the coordinates as below and the second column being the strand information (either + or -) 
+# I used Excel in my local computer and copied & pasted it to Thinlinc 
+
+III:7232264-7232313:+:.	+
+III:7232264-7232313:-:.	-
+
+scp /Users/yang/Desktop/ADR-1_significant2025.txt by6@quartz.uits.iu.edu:/N/slate/by6/motif2025
 
 
 # Generate a genome fasta file (assign variables then download and unpack the genome assembly) 
@@ -54,21 +111,23 @@ ASSEMBLY='ftp://ftp.wormbase.org/pub/wormbase/releases/WS275/species/c_elegans/P
 curl $ASSEMBLY | gunzip > assembly.fasta
 
 
-# Generate a file of coordinates 
-# In your local computer, in the CLIP peak data excel file, copy and paste column D which looks like this: I:2082664-2082816:+:. into a new excel file
-# Save a new file as a text file named coords
-
 
 # Run the perl script 
-# You can set up a border sequence. For example, the code below will extract the coordinates from the file coords, with 10 bps of additional sequence to either side of the region. 
+# You can set up a border sequence. For example, the code below will extract the coordinates from the file coords, with 10 nts of additional sequence to either side of the region. 
 
 module load perl 
 
-perl extractRegions.pl /N/slate/by6/motif/assembly.fasta coords.txt 10
+perl extractRegions2025_RC.pl /N/slate/by6/motif2025/assembly.fasta ADR-1_significant2025.txt 10 > output_ADR-1_significant2025_reversecomplemented.txt 
 
 
 # Copy the resulting sequences and paste them to a new excel file in your local computer 
+
+scp by6@quartz.uits.iu.edu:/N/slate/by6/motif2025/output_ADR-1_significant2025_reversecomplemented.txt ~/Desktop/
+
+
 # Save the new file as a text file and upload it onto the MEME package: https://meme-suite.org/meme/
+
+
 
 
 
