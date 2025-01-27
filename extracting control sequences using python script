@@ -1,8 +1,14 @@
-# Create a folder for the motif analysis 
+# This code was updated from Ryan's original code (012225) to extract both forward and reverse strand sequences
 
-cd /N/slate/by6
 
-mkdir motif 
+# Activate environment for analysis 
+
+conda activate motif 
+
+
+# Make a folder for analysis 
+
+mkdir motif_control2025
 
 
 # Download and unpack genome fasta file 
@@ -27,17 +33,18 @@ gunzip Caenorhabditis_elegans.WBcel235.111.gtf.gz
 
 
 # Download other files from Onedrive (Boyoon Yang > Bioinformatics > MEMESuite folder) to your desktop
-# Copy and paste the files to the motif folder 
+# Copy and paste the files to the motif_control2025 folder 
 # Before proceeding, make sure to change sequence length and file paths in the .py file 
 # For example, 100 indicates the script will extract 100 nt sequences. Change all occurrences of 100 into the length you need. 
 # For example, ['three_prime_UTR'] indicates the genic regions to be extracted. Change it to the region you want (e.g. 'intron'). 
-# Below is the content of the python script 
+# Below is the content of the python script. Write a new python script named extract_random_sequence_3UTR_intron2025.py
+
 
 import random
 import pybedtools
 
 def parse_gff3_for_features(gff3_file):
-    """Parse the GFF3 file and extract 3' UTRs. This can be changed into introns."""
+    """Parse the GFF3 file and extract 3' UTRs along with strand information."""
     features = []
     with open(gff3_file, 'r') as file:
         for line in file:
@@ -45,8 +52,8 @@ def parse_gff3_for_features(gff3_file):
                 continue
             parts = line.strip().split('\t')
             if parts[2] in ['three_prime_UTR']:
-                chrom, start, end = parts[0], int(parts[3]), int(parts[4])
-                features.append((chrom, start, end))
+                chrom, start, end, strand = parts[0], int(parts[3]), int(parts[4]), parts[6]
+                features.append((chrom, start, end, strand))
     return features
 
 def parse_bed_for_clip_sites(clip_file):
@@ -55,38 +62,43 @@ def parse_bed_for_clip_sites(clip_file):
     return clip_sites
 
 def select_random_features(features, clip_sites, num_sequences):
-    """Randomly select features (UTRs or introns) that do not overlap with CLIP sites."""
+    """Randomly select features (UTRs or introns) that do not overlap with CLIP sites, considering strandedness."""
     random_features = []
     while len(random_features) < num_sequences:
         feature = random.choice(features)
-        feature_length = feature[2] - feature[1]
+        feature_length = feature[2] - feature[1] + 1  # Adjusted to include both start and end
 
-        if feature_length >= 100:
-            # Randomly select a start position for the 100 nt sequence
-            start_position = random.randint(feature[1], feature[2] - 100)
+        if feature_length >= 120:
+            start_position = random.randint(feature[1], feature[2] - 120 + 1)  # Adjust for inclusive start
 
-            feature_bed_str = f'{feature[0]}\t{start_position}\t{start_position + 100}'
+            feature_bed_str = f'{feature[0]}\t{start_position - 1}\t{start_position + 119}\t.\t0\t{feature[3]}'  # 0-based adjust
             feature_bed = pybedtools.BedTool(feature_bed_str, from_string=True)
 
             if not feature_bed.intersect(clip_sites, u=True):
-                random_features.append((feature[0], start_position, start_position + 100))
+                random_features.append((feature[0], start_position, start_position + 119, feature[3]))  # 0-based adjust
     return random_features
 
 def extract_sequences(genome_file, selected_features, output_file):
-    """Extract sequences from the genome file and write to output file."""
+    """Extract sequences from the genome file and write to output file, considering strandedness."""
     genome = pybedtools.BedTool(genome_file)
     with open(output_file, 'w') as out:
-        for chrom, start, end in selected_features:
-            seq = genome.sequence(fi=genome_file, bed=pybedtools.BedTool([(chrom, start, end)]))
-            out.write(f'>{chrom}:{start}-{end}\n')
-            out.write(open(seq.seqfn).read())
+        for chrom, start, end, strand in selected_features:
+            seq_bed = pybedtools.BedTool(f"{chrom}\t{start - 1}\t{end}\t.\t0\t{strand}", from_string=True)  # Adjust start for 0-based
+            seq = genome.sequence(fi=genome_file, bed=seq_bed, s=True)
+
+            seq_data = open(seq.seqfn).read().strip()
+            sequence = seq_data.split('\n')[1]  # Extract only the sequence line
+
+            # Write the header and sequence to the file
+            chrom_name = chrom.lstrip('chr')  # Optional: remove 'chr' prefix if present
+            out.write(f'>{chrom_name}:{start}-{end} ({strand})\n')  # Write header with 1-based display
+            out.write(sequence + "\n")  # Write the sequence immediately after the header
 
 # Define file paths
-genome_file = '/N/slate/by6/motif/Caenorhabditis_elegans.WBcel235.dna_sm.toplevel.fa'
-gtf_file = '/N/slate/by6/motif/Caenorhabditis_elegans.WBcel235.111.gtf'
-clip_file = '/N/slate/by6/motif/BY_adr-1_CLIP.bed'
-output_file = 'random_3UTRonly100nt_1_sequences.boyoon.fa'
-gff3_file = '/N/slate/by6/motif/Caenorhabditis_elegans.WBcel235.111.with_introns.gff3'
+genome_file = '/N/slate/by6/motif_control2025/Caenorhabditis_elegans.WBcel235.dna_sm.toplevel.fa'
+gff3_file = '/N/slate/by6/motif_control2025/Caenorhabditis_elegans.WBcel235.111.with_introns.gff3'
+clip_file = '/N/slate/by6/motif_control2025/BY_adr-1_CLIP.bed'
+output_file = 'random_3UTRonly120nt_1.2025.fa'
 
 # Main execution
 features = parse_gff3_for_features(gff3_file)
@@ -95,16 +107,36 @@ num_sequences = len(clip_sites)
 selected_features = select_random_features(features, clip_sites, num_sequences)
 extract_sequences(genome_file, selected_features, output_file)
 
-scp /Users/yang/Desktop/boyoon_extract_random_sequence_3UTR_intron.py by6@quartz.uits.iu.edu:/N/slate/by6/motif
-
-scp /Users/yang/Desktop/BY_adr-1_adr-2_CLIP.bed by6@quartz.uits.iu.edu:/N/slate/by6/motif
 
 
 
-# Run the script 
+
+# You can also avoid extracting regions of ADR-1 CLIP sites. Generate a file name as in the file path: clip_file. The BY_adr-1_CLIP.bed file looks like this 
+
+I	368409	368484	adr-1	1	-
+I	368625	368683	adr-1	1	-
+
+
+
+# Run the script (you have to install pybedtools beforehand. I did this with pip install). Repeat this as many times as you want with changing output file names each time. 
 
 module load python
-module load pybedtools 
+module load pybedtools
 
-python boyoon_extract_random_sequence_3UTR_intron.py
+python extract_random_sequence_3UTR_intron2025.py
+
+
+# View output files 
+
+head random_3UTRonly120nt_1.2025.fa
+
+
+
+# Export output files to the local computer 
+
+scp by6@quartz.uits.iu.edu:/N/slate/by6/motif_control2025/random_3UTRonly120nt_* ~/Desktop/ 
+scp by6@quartz.uits.iu.edu:/N/slate/by6/motif_control2025/random_intrononly120nt_* ~/Desktop/
+
+
+
 
